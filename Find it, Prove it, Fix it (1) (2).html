@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Find it, Prove it, Fix it</title>
+<style>
+:root{--ink:#0e1220;--panel:#161b2e;--line:#2a3150;--text:#e9ecf5;--muted:#9aa3bd;--glass:#9fc8e8;--alarm:#ff5a5f;--safe:#3fb68b;--gold:#ffe9a8;
+--ye:#ffc933;--or:#ff5a1f;--ok:#228a66;--bad:#ff6b6b;--code:#0b0f1d;--codefg:#eee;--mut:#9aa3bd;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--ink);color:var(--text);font-family:"Avenir Next","Segoe UI",system-ui,sans-serif;line-height:1.5}
+header{max-width:1400px;margin:0 auto;padding:22px 20px 0}
+h1{font-family:Georgia,"Iowan Old Style",serif;font-weight:400;font-size:clamp(26px,4vw,36px);margin:0 0 4px}
+header p{color:var(--muted);margin:0;max-width:80ch}
+main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:24px;max-width:1400px;margin:0 auto;padding:20px;align-items:start}
+@media(max-width:980px){main{grid-template-columns:1fr}}
+.part{display:flex;align-items:center;gap:10px;margin:0 0 6px;flex-wrap:wrap}
+.part h2{margin:0;font-family:Georgia,serif;font-weight:400;font-size:22px}
+.ptag{background:var(--ye);color:#141414;font:700 11px ui-monospace,Menlo,monospace;padding:2px 8px;border-radius:4px}
+.sub{color:var(--muted);margin:0 0 14px;font-size:14px;max-width:70ch}
+.badge{padding:2px 8px;border-radius:99px;font-size:11px;border:1.5px solid currentColor;margin-left:auto;white-space:nowrap}
+.vuln{color:#ff6b6b}.safe{color:#4ade80}
+button,select{font:inherit;color:var(--text);background:#1d2440;border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer}
+button:hover{border-color:var(--glass)}
+button.go{background:var(--or);border-color:var(--or);color:#fff;font-weight:700}
+button:disabled{opacity:.4;cursor:not-allowed}
+:focus-visible{outline:2px solid var(--glass);outline-offset:2px}
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+svg#scene{display:block;width:100%;height:auto}
+.mv{transition:transform .7s cubic-bezier(.4,0,.2,1),opacity .5s ease}
+svg.nt .mv{transition:none}
+@media(prefers-reduced-motion:reduce){.mv{transition:none}}
+.verdict{margin:0;padding:14px 18px;border-top:1px solid var(--line);min-height:84px}
+.verdict strong{display:block;font-family:Georgia,serif;font-weight:400;font-size:20px;margin-bottom:2px}
+.verdict span{color:var(--muted)}
+.verdict.v-breach strong{color:var(--alarm)}.verdict.v-blocked strong{color:var(--gold)}.verdict.v-own strong{color:var(--safe)}
+.demo{display:flex;gap:8px;align-items:center;padding:12px 18px;border-top:1px solid var(--line);flex-wrap:wrap}
+.note{color:var(--muted);font-size:13px}
+.side h3{font-family:Georgia,serif;font-weight:400;font-size:19px;margin:18px 0 8px}
+.tally{display:flex;gap:14px;color:var(--muted);font-size:14px;margin-bottom:10px;flex-wrap:wrap}
+.tally b{color:var(--text);font-weight:600}
+ul#list{list-style:none;margin:0;padding:0;display:grid;gap:8px;max-height:320px;overflow-y:auto}
+ul#list button{width:100%;text-align:left;display:grid;gap:2px;padding:10px 12px}
+ul#list button[aria-current="true"]{border-color:var(--glass);background:#222a4a}
+.row-top{display:flex;justify-content:space-between;gap:8px}
+.bdg{font-size:13px;font-weight:600}.b-breach{color:var(--alarm)}.b-blocked{color:var(--gold)}.b-own{color:var(--safe)}
+.row-sub{color:var(--muted);font-size:13px}.empty{color:var(--muted);padding:8px 0}
+.back{background:#0a0d18;border:1px solid var(--line);border-radius:12px;padding:18px}
+.foot{max-width:1400px;margin:0 auto;padding:0 20px 28px;color:var(--muted);font-size:13px}
+.foot p{margin:0;max-width:110ch}
+details summary{cursor:pointer;font-weight:700;font-size:14px}
+textarea{width:100%;height:300px;margin-top:10px;resize:vertical;background:var(--code);color:var(--codefg);border:0;border-radius:8px;padding:10px 12px;font:12.5px/1.55 ui-monospace,Menlo,Consolas,monospace;white-space:pre;overflow:auto}
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0 12px}
+.bar label{font-size:13px;display:flex;gap:6px;align-items:center;cursor:pointer}
+.pstep{display:grid;grid-template-columns:36px 1fr;gap:12px;padding:0 0 16px;margin:0 0 16px;border-bottom:1px solid #2c2a27;min-width:0}
+.pstep:last-of-type{border-bottom:0;margin-bottom:8px}
+.num{width:32px;height:32px;border-radius:50%;border:1.5px solid #6b675e;color:#a29d92;font:700 12px ui-monospace,monospace;display:grid;place-items:center}
+.pstep.act .num{background:var(--ye);color:#141414;border-color:var(--ye)}
+.pstep.dn .num{background:var(--ok);color:#fff;border-color:var(--ok)}
+.pstep h3.ph{margin:0;font-size:17px}
+.pstep .pd{margin:0 0 8px;color:#a29d92;font-size:13px}
+.pstep>div{min-width:0}
+.wait{color:#6f6b62;font-size:13px}
+.tagx{font:600 11px ui-monospace,monospace;color:var(--ye);border:1px solid var(--ye);border-radius:99px;padding:0 7px;margin-left:6px;vertical-align:middle}
+.ev+.ev{margin-top:12px}
+.ev{border-left:3px solid var(--ye);padding:2px 0 2px 12px}
+.ev.fin{border-color:var(--ok)}
+.ev h3{margin:0;font-size:15px;display:flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ye);animation:p 1s infinite}
+.fin .dot{background:var(--ok);animation:none}
+@keyframes p{50%{opacity:.25}}
+@media(prefers-reduced-motion:reduce){.dot{animation:none}}
+.why{margin:2px 0 6px;color:#a29d92;font-size:13px}
+.bd{font-size:14px}.bd p{margin:6px 0}
+.rt{margin:8px 0 0;font:600 12px ui-monospace,Menlo,monospace;color:#c9c4b8}
+pre{margin:4px 0 0;background:#0c0c0b;color:var(--codefg);padding:8px 0;border-radius:8px;font:12.5px/1.55 ui-monospace,Menlo,Consolas,monospace;overflow-x:auto;white-space:pre;border:1px solid #2c2a27}
+.ln{display:block;padding:0 12px;min-width:max-content}
+.ln::before{content:attr(data-n);display:inline-block;width:2.4em;color:#777}
+.l-bad{background:#d6282866}.l-add{background:#1a8a3a77}.l-dim{opacity:.55}
+.t{padding:0 12px}.pass{color:#4ade80}.fail{color:#ff6b6b}.dim{color:#8a8a8a}
+.chip{display:inline-block;margin:2px 4px 2px 0;padding:1px 8px;border-radius:6px;background:#2c2a27;font:12px ui-monospace,Menlo,monospace}
+.chip.id{outline:1px solid var(--ye)}
+.bad{color:#ff6b6b}.good{color:#4ade80}
+.sum{background:#14301c;border:1.5px solid var(--ok);border-radius:10px;padding:12px 14px;font-size:14px}
+.sum b{color:#4ade80}
+</style></head>
+<body>
+<header><h1>Find it, Prove it, Fix it</h1>
+<p>One product in two parts. Part 1 is what a user of the document portal sees. Part 2 is the security agent in the backend, where the whole solution lives. Part 2 fixes the hole that Part 1 exposed.</p></header>
+<main>
+<section id="front" aria-label="Part 1: what the user sees">
+<div class="part"><span class="ptag">Part 1</span><h2>What the user sees</h2></div>
+<p class="sub">Document watch: every time someone opens one of your files, the portal records it. The diamond is your document. Pick an event to replay it.</p>
+<div class="stage">
+<svg id="scene" viewBox="0 0 600 320" role="img" aria-label="Two hands reach for a diamond under a glass case">
+<defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9a8" stop-opacity="0.5"/><stop offset="1" stop-color="#ffe9a8" stop-opacity="0.04"/></linearGradient></defs>
+<rect width="600" height="320" fill="#12172a"/>
+<rect id="wash" class="mv" width="600" height="320" fill="#ff5a5f" opacity="0"/>
+<g id="spot" class="mv" style="transform:translate(300px,0px);opacity:0"><polygon points="0,0 -80,290 80,290" fill="url(#sg)"/></g>
+<rect y="290" width="600" height="30" fill="#0b0f1d"/>
+<rect x="236" y="236" width="128" height="54" rx="4" fill="#232a47" stroke="#3a4470"/>
+<rect x="228" y="230" width="144" height="10" rx="3" fill="#2d3659"/>
+<g id="gem" class="mv" style="transform:translate(300px,206px)"><polygon points="0,-24 22,-6 0,26 -22,-6" fill="#dff3ff" stroke="#9fc8e8" stroke-width="1.5"/><polyline points="-22,-6 22,-6" fill="none" stroke="#9fc8e8"/><polyline points="-8,-6 0,-24 8,-6 0,26 -8,-6" fill="none" stroke="#9fc8e8"/></g>
+<g id="vitrine" class="mv" style="transform:translate(0px,0px)"><rect x="264" y="166" width="72" height="66" rx="8" fill="rgba(159,200,232,0.16)" stroke="#9fc8e8" stroke-width="1.5"/></g>
+<g id="handA" class="mv" style="transform:translate(0px,0px)"><rect x="0" y="198" width="168" height="14" rx="7" fill="#2f8f72"/><circle cx="180" cy="205" r="16" fill="#f0d2b6"/><circle cx="193" cy="197" r="5.5" fill="#f0d2b6"/><circle cx="196" cy="205" r="5.5" fill="#f0d2b6"/><circle cx="193" cy="213" r="5.5" fill="#f0d2b6"/></g>
+<g id="handB" class="mv" style="transform:translate(0px,0px)"><rect x="432" y="198" width="168" height="14" rx="7" fill="#c4474b"/><circle cx="420" cy="205" r="16" fill="#f0d2b6"/><circle cx="407" cy="197" r="5.5" fill="#f0d2b6"/><circle cx="404" cy="205" r="5.5" fill="#f0d2b6"/><circle cx="407" cy="213" r="5.5" fill="#f0d2b6"/></g>
+<g id="shield" class="mv" style="opacity:0;transform:translate(0px,0px)"><rect x="346" y="150" width="8" height="110" rx="4" fill="rgba(255,90,95,0.25)" stroke="#ff5a5f"/><text x="350" y="140" text-anchor="middle" fill="#ff5a5f" font-size="14" font-family="system-ui,sans-serif">403</text></g>
+<text id="lblA" x="16" y="250" fill="#9aa3bd" font-size="13" font-family="system-ui,sans-serif"></text>
+<text id="lblB" x="584" y="250" text-anchor="end" fill="#9aa3bd" font-size="13" font-family="system-ui,sans-serif"></text>
+</svg>
+<p id="verdict" class="verdict" aria-live="polite"><strong>Pick an event</strong><span>Select an item from the list to replay it.</span></p>
+<div class="demo"><button id="replay" type="button">Replay</button><button type="button" data-reset>Reset demo</button><span class="note">Demo only, stands in for real visitors: someone opens</span><select id="fsel" aria-label="File"></select><button type="button" data-v="1">as Alice (owner)</button><button type="button" data-v="2">as Bob</button><button type="button" data-v="0">as a stranger</button></div>
+</div>
+<div class="side"><h3>Access events on your files</h3><div class="tally" id="tally"></div><ul id="list"></ul></div>
+</section>
+
+<section class="back" id="backend" aria-label="Part 2: the whole solution">
+<div class="part"><span class="ptag">Part 2</span><h2>Behind the scenes: the whole solution</h2><span id="mode" class="badge vuln">PORTAL VULNERABLE</span></div>
+<p class="sub">The security agent reads the portal's code, proves the flaw, locates it, checks for siblings, patches it minimally, and ships only a fix that passes the safety gate. Users never see any of this. Press the button and watch Part 1 change.</p>
+<details><summary>The portal's source code (the agent's only input)</summary>
+<div class="bar"><select id="target" aria-label="Codebase"><option value="0">DocPortal (Express)</option><option value="1">TeamVault (different names, sessions)</option><option value="2">RecordsHub (different data model)</option></select></div>
+<textarea id="code" spellcheck="false" aria-label="Portal source code"></textarea></details>
+<div class="bar"><button class="go" id="run">Run security agent</button><button type="button" data-reset>Reset demo</button>
+<label><input type="checkbox" id="sloppy" checked> Show the safety gate (first AI fix is deliberately careless)</label></div>
+<div class="pstep" id="p-Reproduce"><div class="num">01</div><div><h3 class="ph">Reproduce</h3><p class="pd">Turn the suspected flaw into automated tests. A failing "Bob is denied" test is the proof.</p><div class="out" data-empty="1"><span class="wait">Waiting</span></div></div></div><div class="pstep" id="p-Locate"><div class="num">02</div><div><h3 class="ph">Locate</h3><p class="pd">Trace the failure to the exact line of code that lets the wrong person in.</p><div class="out" data-empty="1"><span class="wait">Waiting</span></div></div></div><div class="pstep" id="p-Sweep"><div class="num">03</div><div><h3 class="ph">Sweep<span class="tagx">extra</span></h3><p class="pd">Check every similar route for the same flaw, so the fix is not just one instance.</p><div class="out" data-empty="1"><span class="wait">Waiting</span></div></div></div><div class="pstep" id="p-Patch"><div class="num">04</div><div><h3 class="ph">Patch</h3><p class="pd">Propose the smallest change that closes the hole. Not a rewrite.</p><div class="out" data-empty="1"><span class="wait">Waiting</span></div></div></div><div class="pstep" id="p-Verify"><div class="num">05</div><div><h3 class="ph">Verify</h3><p class="pd">The safety gate: the attack test must pass AND normal use must still work. Bad fixes are rejected and retried.</p><div class="out" data-empty="1"><span class="wait">Waiting</span></div></div></div><div id="feed"></div>
+</section>
+</main>
+<div class="foot"><p><b>Real here:</b> Part 1's events come from the real portal code running in Part 2. The tests execute against that code, the locator scans it, the patch edits it, and the gate decides. <b>Stubbed:</b> the locator and patch writer are rule-based so this runs offline, and the demo buttons stand in for real visitors. In the full system an LLM proposes the tests and patches, the same gate judges them, and the accepted patch becomes a pull request for human review. Python/Flask targets need a real runner.</p></div>
+<script>
+const T=[`// DocPortal: Express-style routes
+app.get('/files', auth, (req, res) => {
+  return res.json(db.files.filter(f => f.ownerId === req.user.id));
+});
+
+app.get('/download/:id', auth, (req, res) => {
+  const f = db.files.find(x => x.id == req.params.id);
+  if (!f) return res.status(404).send('Not found');
+  return res.send(f);
+});
+
+app.get('/preview/:id', auth, (req, res) => {
+  const f = db.files.find(x => x.id == req.params.id);
+  if (!f) return res.status(404).send('Not found');
+  return res.send(f);
+});
+
+app.delete('/files/:id', auth, (req, res) => {
+  const f = db.files.find(x => x.id == req.params.id);
+  if (!f) return res.status(404).send('Not found');
+  if (f.ownerId !== req.user.id) return res.status(403).send('Forbidden');
+  db.files = db.files.filter(x => x.id != f.id);
+  return res.send('deleted');
+});
+`,`// TeamVault: session-based, different naming
+app.get('/my/docs', auth, (req, res) => {
+  const mine = db.docs.filter(d => d.owner_id === req.session.userId);
+  return res.json(mine);
+});
+
+app.get('/docs/:docId/open', auth, (req, res) => {
+  const doc = db.docs.find(d => d.id === Number(req.params.docId));
+  if (!doc) return res.status(404).send('No such document');
+  return res.send(doc);
+});
+
+app.get('/docs/:docId/export', auth, (req, res) => {
+  const doc = db.docs.find(d => d.id === Number(req.params.docId));
+  if (!doc) return res.status(404).send('No such document');
+  return res.send({ ...doc, format: 'pdf' });
+});
+
+app.delete('/docs/:docId', auth, (req, res) => {
+  const doc = db.docs.find(d => d.id === Number(req.params.docId));
+  if (!doc) return res.status(404).send('No such document');
+  if (doc.owner_id !== req.session.userId) return res.status(403).send('Forbidden');
+  db.docs = db.docs.filter(d => d.id !== doc.id);
+  return res.send('deleted');
+});
+`,`// RecordsHub: only one route is affected
+app.get('/reports/mine', auth, (req, res) => {
+  return res.json(db.reports.filter(r => r.createdBy === req.user.uid));
+});
+
+app.get('/reports/:rid', auth, (req, res) => {
+  const rep = db.reports.find(r => String(r.id) === req.params.rid);
+  if (!rep) return res.status(404).send('Missing');
+  return res.send(rep);
+});
+
+app.delete('/reports/:rid', auth, (req, res) => {
+  const rep = db.reports.find(r => String(r.id) === req.params.rid);
+  if (!rep) return res.status(404).send('Missing');
+  if (rep.createdBy !== req.user.uid) return res.status(403).send('Forbidden');
+  db.reports = db.reports.filter(r => r.id !== rep.id);
+  return res.send('deleted');
+});
+`];
+const SEEDS={
+ files:[{id:101,ownerId:1,name:'Alice_Salary_Slip.pdf'},{id:102,ownerId:1,name:'Alice_Passport_Scan.pdf'},{id:103,ownerId:2,name:'Bob_Resume.pdf'}],
+ docs:[{id:101,owner_id:1,title:'Alice_Tax_Return.docx'},{id:102,owner_id:1,title:'Alice_Contract.docx'},{id:103,owner_id:2,title:'Bob_Offer_Letter.docx'}],
+ reports:[{id:101,createdBy:1,title:'Alice_Medical_Report'},{id:102,createdBy:1,title:'Alice_Audit_Draft'},{id:103,createdBy:2,title:'Bob_Q3_Summary'}]};
+const NAME={1:'Alice',2:'Bob'},$=id=>document.getElementById(id),sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const rxs=s=>s.replace(/\./g,'\\.');
+let user=1,running=false;
+
+function makeApp(code){
+  const routes=[],reg=m=>(p,...h)=>routes.push({m,p,h}),db=JSON.parse(JSON.stringify(SEEDS));
+  const auth=(req,res,next)=>{if(!req.user)return res.status(401).send('Login required');next()};
+  new Function('app','db','auth',code)({get:reg('GET'),delete:reg('DELETE')},db,auth);
+  return{routes,db};
+}
+function request(inst,method,path,uid){
+  for(const r of inst.routes){
+    if(r.m!==method)continue;
+    const names=[],mm=path.match(new RegExp('^'+r.p.replace(/:(\w+)/g,(_,n)=>{names.push(n);return'([^/]+)'})+'$'));
+    if(!mm)continue;
+    const params={};names.forEach((n,i)=>params[n]=mm[i+1]);
+    const req={user:uid?{id:uid,uid}:null,session:uid?{userId:uid}:null,params},res={status:200,body:null,done:false};
+    const o={status(c){res.status=c;return o},send(b){res.body=b;res.done=true;return o},json(b){res.body=b;res.done=true;return o}};
+    let i=0;const next=()=>{const h=r.h[i++];if(h&&!res.done)h(req,o,next)};
+    try{next()}catch(e){return{status:500,body:String(e)}}
+    return res;
+  }
+  return{status:404,body:'No route'};
+}
+function introspect(code){
+  const coll=(code.match(/db\.(\w+)/)||[])[1],seed=SEEDS[coll];
+  if(!seed)return null;
+  return{coll,ownerKey:Object.keys(seed[0]).find(k=>/owner|created|user/i.test(k)),userExpr:(code.match(/req\.(?:user|session)\.\w+/)||['req.user.id'])[0]};
+}
+function suite(code,info){
+  const S=[],idr=makeApp(code).routes.filter(r=>r.p.includes(':')),at=(r,id)=>r.p.replace(/:\w+/,id),c=info.coll;
+  idr.forEach(r=>{
+    S.push([`${r.m} ${r.p}: Bob is denied Alice's file`,()=>{const a=makeApp(code),s=request(a,r.m,at(r,101),2).status;return(s===403||s===404)&&a.db[c].some(f=>f.id===101)}]);
+    S.push([`${r.m} ${r.p}: Alice can use her own file`,()=>request(makeApp(code),r.m,at(r,101),1).status===200]);
+  });
+  const lr=makeApp(code).routes.find(r=>r.m==='GET'&&!r.p.includes(':'));
+  if(lr)S.push([`GET ${lr.p}: lists only my files`,()=>{const b=request(makeApp(code),'GET',lr.p,2).body;return Array.isArray(b)&&b.length===1&&b[0].id===103}]);
+  if(idr.length){
+    S.push(['anonymous visitor gets 401',()=>request(makeApp(code),idr[0].m,at(idr[0],101),null).status===401]);
+    S.push(['unknown file returns 404',()=>request(makeApp(code),idr[0].m,at(idr[0],999),1).status===404]);
+  }
+  return S;
+}
+function runSuite(code,info){try{return suite(code,info).map(([n,f])=>{let ok=false;try{ok=!!f()}catch(e){}return[n,ok]})}catch(e){return null}}
+function show(rs){const p=rs.filter(r=>r[1]).length;return'<pre>'+rs.map(r=>`<span class="t"><span class="${r[1]?'pass':'fail'}">${r[1]?'PASSED':'FAILED'}</span> ${esc(r[0])}</span>`).join('<br>')+`<br><span class="t dim">${p} passed, ${rs.length-p} failed</span></pre>`}
+function locate(code,info){
+  const L=code.split('\n'),out=[],ck=new RegExp(info.ownerKey+'\\s*[!=]==?\\s*'+rxs(info.userExpr)+'|'+rxs(info.userExpr)+'\\s*[!=]==?\\s*\\w+\\.'+info.ownerKey);
+  let s=-1;
+  for(let i=0;i<L.length;i++){
+    if(/^app\.\w+\(/.test(L[i]))s=i;
+    if(s>=0&&/^\}\);?\s*$/.test(L[i])){
+      const m=L[s].match(/app\.(\w+)\('([^']+)'/);
+      if(m&&m[2].includes(':')){
+        const lk=L.findIndex((x,j)=>j>s&&j<i&&/req\.params/.test(x)),v=(L[lk]||'').match(/(?:const|let|var)\s+(\w+)\s*=/);
+        let sink=-1;for(let j=lk+1;j<i;j++)if(/res\.(send|json)\(|db\.\w+\s*=/.test(L[j])&&!/status\(40/.test(L[j])){sink=j;break}
+        out.push({route:m[1].toUpperCase()+' '+m[2],lk,sink,v:v?v[1]:'f',checked:ck.test(L.slice(s,i+1).join('\n'))});
+      }
+      s=-1;
+    }
+  }
+  return out;
+}
+function pre(rows){return'<pre>'+rows.map(([t,c,n])=>`<span class="ln ${c||''}" data-n="${n}">${esc(t)||' '}</span>`).join('')+'</pre>'}
+function patchCode(code,fs,info,careless){
+  const L=code.split('\n'),added=[];
+  [...fs].sort((a,b)=>b.sink-a.sink).forEach(f=>{
+    const ind=(L[f.sink].match(/^\s*/)||[''])[0],line=careless?`${ind}return res.status(403).send('Forbidden');`:`${ind}if (${f.v}.${info.ownerKey} !== ${info.userExpr}) return res.status(403).send('Forbidden');`;
+    added.push({route:f.route,line,before:L[f.sink-1],after:L[f.sink],at:f.sink});L.splice(f.sink,0,line);
+  });
+  return{code:L.join('\n'),added:added.reverse()};
+}
+const diffView=a=>a.map(x=>`<div class="rt">${esc(x.route)}</div>`+pre([[x.before,'l-dim',x.at],[x.line,'l-add','+'],[x.after,'l-dim',x.at+1]])).join('');
+
+
+/* ---- Part 1: the user's Document watch ---- */
+const LOG=[];let sel=null,seq=0,runId=0,INFO=null,OPEN=null;
+const svg=$('scene'),cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+const who=id=>id==null?'an anonymous visitor':(NAME[id]||'user '+id);
+const kindOf=i=>i.breach?'breach':(i.viewer_id===i.owner_id?'own':'blocked');
+const setT=(n,x,y)=>{$(n).style.transform='translate('+x+'px, '+y+'px)'};
+function resetScene(){
+  svg.classList.add('nt');setT('handA',0,0);setT('handB',0,0);setT('gem',300,206);setT('vitrine',0,0);$('vitrine').style.opacity=1;setT('spot',300,0);$('spot').style.opacity=0;$('shield').style.opacity=0;setT('shield',0,0);$('wash').setAttribute('opacity',0);void svg.getBoundingClientRect();svg.classList.remove('nt');
+}
+function setVerdict(cls,t,d){const v=$('verdict');v.className='verdict '+cls;v.textContent='';const s=document.createElement('strong');s.textContent=t;const p=document.createElement('span');p.textContent=d;v.appendChild(s);v.appendChild(p)}
+function play(i){
+  runId++;const me=runId,at=(ms,fn)=>setTimeout(()=>{if(me===runId)fn()},ms),k=kindOf(i),viewer=who(i.viewer_id),owner=who(i.owner_id);
+  resetScene();$('lblA').textContent='Owner: '+owner;$('lblB').textContent='Visitor: '+viewer;
+  setVerdict('','Replaying',i.ts+' (event '+i.id+')');
+  at(100,()=>{$('spot').style.opacity=1;setT('vitrine',0,-80);$('vitrine').style.opacity=0.35});
+  if(k==='breach'){
+    at(800,()=>setT('handB',-100,0));
+    at(1500,()=>{setT('handB',-40,0);setT('gem',358,206);setT('spot',358,0);$('wash').setAttribute('opacity',0.16)});
+    at(2300,()=>setVerdict('v-breach','Thief caught',cap(viewer)+' got your file #'+i.file_id+' ('+i.action+', HTTP '+i.status+'). The portal handed it over without checking who owns it.'));
+  }else if(k==='blocked'){
+    at(800,()=>setT('handB',-48,0));at(1300,()=>{$('shield').style.opacity=1});at(1500,()=>setT('handB',0,0));
+    at(1900,()=>setVerdict('v-blocked','Access blocked',cap(viewer)+' tried to '+i.action+' your file #'+i.file_id+' and was refused (HTTP '+i.status+'). Nothing was shared.'));
+  }else{
+    at(800,()=>setT('handA',100,0));
+    at(1500,()=>{setT('handA',20,0);setT('gem',222,206);setT('spot',222,0)});
+    at(2200,()=>setVerdict('v-own','Opened by its owner','You ('+owner+') used '+i.action+' on file #'+i.file_id+' (HTTP '+i.status+'). This is normal.'));
+  }
+}
+function renderList(){
+  const L=$('list'),Y=$('tally'),c={breach:0,blocked:0,own:0};L.textContent='';Y.textContent='';
+  LOG.forEach(i=>c[kindOf(i)]++);
+  [['Breaches',c.breach],['Blocked',c.blocked],['Your own',c.own]].forEach(p=>{const s=document.createElement('span'),b=document.createElement('b');b.textContent=p[1];s.appendChild(b);s.appendChild(document.createTextNode(' '+p[0].toLowerCase()));Y.appendChild(s)});
+  if(!LOG.length){const e=document.createElement('li');e.className='empty';e.textContent='No one has opened your files yet.';L.appendChild(e);return}
+  LOG.forEach(i=>{
+    const k=kindOf(i),li=document.createElement('li'),b=document.createElement('button');b.type='button';
+    if(sel&&sel.id===i.id)b.setAttribute('aria-current','true');
+    b.innerHTML=`<span class="row-top"><span>${esc(cap(who(i.viewer_id)))} on file #${i.file_id}</span><span class="bdg b-${k}">${k==='breach'?'Breach':k==='blocked'?'Blocked':'Owner'}</span></span><span class="row-sub">${esc(i.ts)}, ${esc(i.action)}, HTTP ${i.status}</span>`;
+    b.onclick=()=>{sel=i;renderList();play(i)};li.appendChild(b);L.appendChild(li);
+  });
+}
+function add(e){e.id=++seq;e.ts=new Date().toTimeString().slice(0,8);LOG.unshift(e);sel=e;renderList();play(e)}
+function openFile(uid){
+  if(!INFO||!OPEN)return;
+  const fid=+$('fsel').value,rec=SEEDS[INFO.coll].find(f=>f.id===fid);if(!rec)return;
+  let r;try{r=request(makeApp($('code').value),'GET',OPEN.p.replace(/:\w+/,fid),uid)}catch(e){return}
+  const owner=rec[INFO.ownerKey];
+  add({viewer_id:uid,owner_id:owner,file_id:fid,action:'open',status:r.status,breach:r.status===200&&uid!==owner});
+}
+function fillFiles(){const f=$('fsel');f.textContent='';if(!INFO)return;SEEDS[INFO.coll].filter(r=>r[INFO.ownerKey]===1).forEach(r=>{const o=document.createElement('option');o.value=r.id;o.textContent='#'+r.id+' '+(r.name||r.title);f.appendChild(o)})}
+function afterFix(){$('fsel').selectedIndex=0;openFile(2)}
+function refresh(){
+  const code=$('code').value,m=$('mode');
+  try{INFO=introspect(code);OPEN=makeApp(code).routes.find(r=>r.m==='GET'&&r.p.includes(':'))}catch(e){INFO=null}
+  if(!INFO||!OPEN){m.textContent='CODE ERROR';m.className='badge vuln';return}
+  const bad=(runSuite(code,INFO)||[]).some(r=>!r[1]&&/denied/.test(r[0]));
+  m.textContent=bad?'PORTAL VULNERABLE':'PORTAL SECURED';m.className='badge '+(bad?'vuln':'safe');
+}
+/* ---- the agent ---- */
+const ST=['Reproduce','Locate','Sweep','Patch','Verify'];
+function mark(s){const k=ST.indexOf(s);ST.forEach((n,i)=>{$('p-'+n).className='pstep '+(s===''?'':i<k?'dn':i===k?'act':'')})}
+function allDone(){ST.forEach(n=>$('p-'+n).className='pstep dn')}
+async function ev(stage,title,why,body,ms=800){
+  mark(stage);const o=document.querySelector('#p-'+stage+' .out');
+  if(o.dataset.empty!=='0'){o.innerHTML='';o.dataset.empty='0'}
+  const d=document.createElement('div');d.className='ev';
+  d.innerHTML=`<h3><span class="dot"></span>${title}</h3><p class="why">${why}</p><div class="bd"><span class="dim">working…</span></div>`;
+  o.appendChild(d);d.scrollIntoView({block:'nearest',behavior:'smooth'});
+  await sleep(ms);d.classList.add('fin');d.querySelector('.bd').innerHTML=body;
+}
+function clearFeed(){ST.forEach(n=>{const o=document.querySelector('#p-'+n+' .out');o.innerHTML='<span class="wait">Waiting</span>';o.dataset.empty='1'});$('feed').innerHTML='';mark('')}
+async function run(){
+  if(running)return;running=true;$('run').disabled=true;clearFeed();
+  let code=$('code').value,info;
+  try{info=introspect(code);makeApp(code)}catch(e){info=null}
+  if(!info){await ev('Reproduce','Cannot read this codebase','The agent needs routes it can execute.','<span class="bad">Syntax error or unsupported data model.</span>',300);running=false;$('run').disabled=false;return}
+  const routes=makeApp(code).routes;
+  const br=LOG.filter(e=>e.breach),lb=br[0];
+  await ev('Reproduce','Trigger: alert from the access log','Part 1 records every file open. A visitor who is not the owner but got HTTP 200 starts the investigation.',lb?`<p class="bad">${esc(NAME[lb.viewer_id]||'A visitor')} opened ${esc(NAME[lb.owner_id])}'s file #${lb.file_id} and the portal answered ${lb.status}.</p><p>${br.length} breach event(s) in the log.</p>`:'<p class="dim">No breach in the log yet. Running a proactive scan anyway.</p>',700);
+  await ev('Reproduce','Reading the codebase','The agent finds every entry point and which ones accept a file ID, the usual place for access flaws.',routes.map(r=>`<span class="chip ${r.p.includes(':')?'id':''}">${r.m} ${esc(r.p)}</span>`).join('')+`<p class="dim">${routes.filter(r=>r.p.includes(':')).length} routes take an ID (outlined).</p>`);
+  const rs=runSuite(code,info),bad=rs.filter(r=>!r[1]&&/denied/.test(r[0]));
+  await ev('Reproduce','Reproduce: write tests that attack the portal','A failing test is proof. "Bob is denied" should pass; if it fails, Bob got in.',show(rs)+(bad.length?`<p class="bad">Bug proven: ${bad.length} route(s) let Bob open Alice's file.</p>`:'<p class="good">No access flaw found. Nothing to fix.</p>'),1100);
+  if(!bad.length){allDone();running=false;$('run').disabled=false;return}
+  const L=code.split('\n'),fd=locate(code,info),vs=fd.filter(f=>!f.checked&&f.sink>-1),first=vs[0];
+  await ev('Locate','Locate: find the root cause','Trace the failing test to the exact line where the owner should have been checked.',pre(L.slice(Math.max(0,first.lk-1),first.sink+1).map((t,k)=>[t,Math.max(0,first.lk-1)+k===first.sink?'l-bad':'',Math.max(0,first.lk-1)+k+1]))+`<p><b>${esc(first.route)}</b> (line ${first.sink+1}): the file is found by ID and returned, but nobody asks "does this belong to the logged-in user?"</p>`,1100);
+  const others=fd.filter(f=>f!==first);
+  await ev('Sweep','Sweep: is the same flaw hiding elsewhere?','Fixing one route and missing its siblings is how real breaches repeat.',fd.map(f=>`<p>${f.checked?'<span class="good">clean</span>':'<span class="bad">vulnerable</span>'} <span class="chip">${esc(f.route)}</span>${f===first?'<span class="dim"> (reported)</span>':f.checked?'<span class="dim"> already checks the owner, left alone</span>':'<span class="dim"> same flaw found</span>'}</p>`).join('')+`<p>${vs.length} to fix${others.some(f=>!f.checked)?', including sibling routes the test run did not point at':''}.</p>`,1000);
+  let attempt=1,accepted=null,rejected=0;
+  if($('sloppy').checked){
+    const c=patchCode(code,vs,info,true);
+    await ev('Patch','Patch, attempt 1','A hasty fix: block everything. It does stop Bob...',diffView(c.added),900);
+    const r=runSuite(c.code,info),fl=r.filter(x=>!x[1]);
+    await ev('Verify','Verify: safety gate on attempt 1','The gate re-runs every test, including normal use. The attack test alone is not enough.',show(r)+`<p class="bad">REJECTED. This fix also blocks legitimate users (${fl.length} tests broke). Sending the failures back to the AI.</p>`,1100);
+    rejected=1;attempt=2;
+  }
+  const c=patchCode(code,vs,info,false);
+  await ev('Patch','Patch'+(attempt>1?', attempt 2 (using the gate\'s feedback)':''),'Smallest change that closes the hole: one ownership check per affected route. Nothing rewritten.',diffView(c.added),900);
+  const r2=runSuite(c.code,info),ok=r2.every(x=>x[1]);
+  await ev('Verify','Verify: safety gate'+(attempt>1?' on attempt 2':''),'Attack test must pass and normal features must still work.',show(r2)+(ok?'<p class="good">ACCEPTED. Bug closed, nothing else broke.</p>':'<p class="bad">REJECTED.</p>'),1100);
+  if(ok){
+    $('code').value=c.code;refresh();afterFix();
+    allDone();
+    const d=document.createElement('div');d.className='sum';
+    d.innerHTML=`<b>Done.</b> ${vs.length} route(s) patched with ${c.added.length} added line(s), ${r2.length}/${r2.length} tests passing, ${rejected} unsafe fix${rejected===1?'':'es'} blocked by the gate. The new tests stay in the repo so the flaw cannot return. Part 1 now shows Bob being blocked.`;
+    $('feed').appendChild(d);d.scrollIntoView({block:'nearest',behavior:'smooth'});
+  }
+  running=false;$('run').disabled=false;
+}
+
+$('run').onclick=run;
+document.querySelectorAll('[data-reset]').forEach(b=>b.onclick=()=>{if(!running)load(+$('target').value)});
+$('replay').onclick=()=>{if(sel)play(sel)};
+document.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>openFile(b.dataset.v==='0'?null:+b.dataset.v));
+function load(i){$('code').value=T[i];clearFeed();LOG.length=0;seq=0;sel=null;refresh();fillFiles();resetScene();renderList();openFile(1)}
+$('target').onchange=e=>load(+e.target.value);
+$('code').oninput=()=>{clearFeed();refresh();fillFiles()};
+load(0);
+</script></body></html>
